@@ -2,6 +2,8 @@ package com.example.library.takePicture
 
 import android.Manifest
 import android.app.Activity
+import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -19,34 +21,30 @@ import com.example.library.utils.REQUEST_CODE_CHOOSE_PICTURE
 import com.example.library.utils.REQUEST_CODE_EXTERNAL_STORAGE
 import com.example.library.utils.launchTakePictureIntent
 
-abstract class TakePictureViewModel : BaseViewModel() {
+abstract class TakePictureViewModel(application: Application) : BaseViewModel(application) {
     protected var imageUri: Uri? = null
     protected var bitmap: Bitmap? = null
 
-    private val bitmapData: MutableLiveData<Bitmap> = MutableLiveData()
+    val bitmapLiveData: MutableLiveData<Bitmap> = MutableLiveData()
     private val storagePermission = Manifest.permission.WRITE_EXTERNAL_STORAGE
-
-    private val target = object : CustomTarget<Bitmap>() {
-        override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-            bitmap = resource
-            bitmapData.postValue(bitmap)
-        }
-
-        override fun onLoadCleared(placeholder: Drawable?) {}
-    }
-
-    fun getImageLiveData() = bitmapData
 
     protected abstract fun getAppName(): String
 
     private fun isStoragePermissionGranted(activity: Activity) =
-        ActivityCompat.checkSelfPermission(activity, storagePermission) == PackageManager.PERMISSION_GRANTED
+        ActivityCompat.checkSelfPermission(
+            activity,
+            storagePermission
+        ) == PackageManager.PERMISSION_GRANTED
 
     fun takePicture(activity: Activity) {
         if (isStoragePermissionGranted(activity))
             imageUri = launchTakePictureIntent(activity, getAppName(), REQUEST_CODE_CHOOSE_PICTURE)
         else
-            ActivityCompat.requestPermissions(activity, arrayOf(storagePermission), REQUEST_CODE_EXTERNAL_STORAGE)
+            ActivityCompat.requestPermissions(
+                activity,
+                arrayOf(storagePermission),
+                REQUEST_CODE_EXTERNAL_STORAGE
+            )
     }
 
     fun takePicture(fragment: Fragment) {
@@ -74,8 +72,20 @@ abstract class TakePictureViewModel : BaseViewModel() {
         if (resultCode == Activity.RESULT_OK && requestCode == REQUEST_CODE_CHOOSE_PICTURE) {
             try {
                 if (data?.data != null) imageUri = Uri.parse(data.dataString)
-                Glide.with(contextRef!!.get()!!).asBitmap().load(imageUri)
-                    .apply(RequestOptions.overrideOf(400).centerCrop()).into(target)
+                Glide.with(getApplication() as Context).asBitmap().load(imageUri)
+                    .apply(RequestOptions.overrideOf(400).centerCrop()).into(
+                        object : CustomTarget<Bitmap>() {
+                            override fun onResourceReady(
+                                resource: Bitmap,
+                                transition: Transition<in Bitmap>?
+                            ) {
+                                bitmap = resource
+                                bitmapLiveData.postValue(bitmap)
+                            }
+
+                            override fun onLoadCleared(placeholder: Drawable?) {}
+                        }
+                    )
 
             } catch (e: Exception) {
                 e.printStackTrace()

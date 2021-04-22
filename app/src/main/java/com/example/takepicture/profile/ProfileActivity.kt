@@ -10,19 +10,17 @@ import com.example.takepicture.R
 import kotlinx.android.synthetic.main.activity_profile.*
 
 class ProfileActivity : AppCompatActivity() {
-    private lateinit var viewModel: ProfileViewModel
+
+    private val viewModel by lazy {
+        ViewModelProvider(this)[ProfileViewModel::class.java].apply {
+            bitmapLiveData.observe(this@ProfileActivity, { ivProfile.setImageBitmap(it) })
+            showMessageLiveData.observe(this@ProfileActivity, { showMessage(it) })
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
-        initViewModel()
-    }
-
-    private fun initViewModel() {
-        viewModel = ViewModelProvider(this)[ProfileViewModel::class.java]
-        viewModel.getImageLiveData().observe(this, { ivProfile.setImageBitmap(it) })
-        viewModel.getShowMessageLiveData().observe(this, { showMessage(it) })
-        viewModel.init(this)
     }
 
     fun onClickTakePicture(v: View) = viewModel.takePicture(this)
